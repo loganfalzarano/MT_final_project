@@ -39,8 +39,16 @@ logging.basicConfig(level=logging.INFO,
 # we are forcing the use of cpu, if you have access to a gpu, you can set the flag to "cuda"
 # make sure you are very careful if you are using a gpu on a shared cluster/grid, 
 # it can be very easy to confict with other people's jobs.
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("mps")
+
+device = None
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
+
+logging.info("Using device %s", device)
 
 SOS_token = "<SOS>"
 EOS_token = "<EOS>"
@@ -447,14 +455,16 @@ class MultiHeadedAttention(nn.Module):
         
         #TODO split the queries, keys, and values into n_heads
         #HINT: you can use .permute or .view to shape the tensors
-        #NOTE (batch_size, seq_len, embedding_size) -> (batch_size, seq_len, n_heads, head_dim) -> (batch_size, n_heads, seq_len, head_dim)
-        #NOTE (batch_size, n_heads, seq_len, head_dim) indicates that each head sees the whole sentence but only a portion of the embedding
-        Q = Q.view(Q.size(0), Q.size(1), self.n_heads, self.head_dim).permute(0, 2, 1, 3)
-        K = K.view(K.size(0), K.size(1), self.n_heads, self.head_dim).permute(0, 2, 1, 3)
-        V = V.view(V.size(0), V.size(1), self.n_heads, self.head_dim).permute(0, 2, 1, 3)
+        
+        #NOTE (batch_size, seq_len, embedding_size) -> (batch_size, seq_len, n_heads, head_dim)
+        # -> (batch_size, n_heads, seq_len, head_dim)
+        
+        #NOTE (batch_size, n_heads, seq_len, head_dim) indicates that each head sees the whole
+        # sentence but only a portion of the embedding
         
         #TODO compute the attention scores for each head
-        #NOTE should be of shape (batch_size, n_heads, seq_len, seq_len) since there is an attention vector over each word in the sequence for each head
+        #NOTE should be of shape (batch_size, n_heads, seq_len, seq_len) since there is an 
+        # attention vector over each word in the sequence for each head
         
         #concatenate the heads
         x = x.permute(0, 2, 1, 3).contiguous().view(x.size(0), -1, self.embedding_size)
@@ -633,9 +643,6 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         
         #TODO: initialize the encoder layers using nn.ModuleList
-        self.layers = nn.ModuleList([
-            EncoderLayer(embedding_size, n_heads, hidden_size, dropout_p) for _ in range(n_layers)
-        ])
         
     def forward(self, x, mask):
         """
@@ -1189,7 +1196,7 @@ def main():
         cross_attentions_through_time.append(cross_attentions)
     
     #train the batch an epoch
-    for epoch_number in range(args.n_epochs):
+    while epoch_number < args.n_epochs:
         # Create progress bar for each epoch
         progress_bar = tqdm(train_dataloader, 
                           desc=f'Epoch {epoch_number + 1}/{args.n_epochs}',

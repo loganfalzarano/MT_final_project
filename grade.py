@@ -32,7 +32,7 @@ def read_references(filepath):
 
 def main():
     parser = argparse.ArgumentParser(description='Calculate BLEU score for translations')
-    parser.add_argument('--translations', default='translations',
+    parser.add_argument('--translations', required=True,
                         help='path to file containing translations')
     parser.add_argument('--references', required=True,
                         help='path to file containing references')

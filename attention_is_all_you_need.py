@@ -39,8 +39,15 @@ logging.basicConfig(level=logging.INFO,
 # we are forcing the use of cpu, if you have access to a gpu, you can set the flag to "cuda"
 # make sure you are very careful if you are using a gpu on a shared cluster/grid, 
 # it can be very easy to confict with other people's jobs.
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("mps")
+device = None
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
+    
+logging.info("Using device %s", device)
 
 SOS_token = "<SOS>"
 EOS_token = "<EOS>"
@@ -1237,7 +1244,7 @@ def main():
         cross_attentions_through_time.append(cross_attentions)
     
     #train the batch an epoch
-    for epoch_number in range(args.n_epochs):
+    while epoch_number < args.n_epochs:
         # Create progress bar for each epoch
         progress_bar = tqdm(train_dataloader, 
                           desc=f'Epoch {epoch_number + 1}/{args.n_epochs}',
